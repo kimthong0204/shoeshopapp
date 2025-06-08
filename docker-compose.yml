@@ -1,0 +1,57 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: shoeshopapp
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+    volumes:
+      - ./shoe_shopdb.sql:/docker-entrypoint-initdb.d/shoe_shopdb.sql
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"
+
+  app:
+    image: my-spring-app:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks:
+      - app-network
+    
+  jenkins:
+    image: jenkins/jenkins:lts # Sử dụng image Jenkins LTS
+    privileged: true # Cần thiết cho một số tác vụ như Docker-in-Docker hoặc mounting volumes
+    user: root # Chạy Jenkins dưới quyền root để tránh vấn đề permission với Docker socket (nếu có)
+    ports:
+      - "8081:8080" # Jenkins UI trên cổng 8081 của host, cổng 8080 bên trong container
+      - "50000:50000" # Cổng cho Jenkins agents
+    volumes:
+      - jenkins_data:/var/jenkins_home # Lưu trữ dữ liệu Jenkins bền vững
+      # Nếu bạn muốn Jenkins có thể tương tác với Docker daemon trên host, uncomment dòng dưới:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      # - /usr/local/bin/docker:/usr/local/bin/docker
+    environment:
+      JAVA_OPTS: "-Xmx1024m -Xms512m" # Cấu hình bộ nhớ Java cho Jenkins
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  jenkins_data:
